@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<iq:manifest version="3" xmlns:iq="http://www.garmin.com/xml/connectiq">
+    <iq:application id="1ccd28e2-e03a-4a58-9bd7-8ba10f0b70c7" type="watch-app" name="@Strings.AppName" entry="ExampleApp" launcherIcon="@Drawables.LauncherIcon" minApiLevel="1.2.0">
+        <iq:products>
+            <iq:product id="enduro3"/>
+        </iq:products>
+        <iq:permissions/>
+        <iq:languages/>
+        <iq:barrels>
+            <iq:depends name="Protobuf" version="0.0.0"/>
+        </iq:barrels>
+    </iq:application>
+</iq:manifest>
