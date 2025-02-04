@@ -5,7 +5,7 @@ go 1.23.4
 require (
 	github.com/pborman/indent v1.2.1
 	github.com/stoewer/go-strcase v1.3.0
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.10.0
 	google.golang.org/protobuf v1.36.4
 )
 

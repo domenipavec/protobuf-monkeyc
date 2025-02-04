@@ -2,7 +2,7 @@
 
 Protobuf implementation for Garmin watches programmed with Monkey C.
 
-Supports encoding and decoding of all basic types. GRPC is not supported.
+Supports encoding and decoding of all basic types except `double`. GRPC is not supported.
 
 ## Usage
 

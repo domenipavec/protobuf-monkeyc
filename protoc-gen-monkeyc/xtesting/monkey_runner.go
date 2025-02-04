@@ -15,6 +15,7 @@ import (
 type MonkeyRunnerCB func(string)
 
 type MonkeyRunnerCase struct {
+	InitCode string
 	Function string
 	Args     []any
 	Callback MonkeyRunnerCB
@@ -32,12 +33,15 @@ func (m *MonkeyRunner) Run(cs MonkeyRunnerCase) {
 func (m *MonkeyRunner) Execute(t *testing.T) {
 	casesCode := ""
 	caseCodeTmpl := `
-	var got%d = %s(%s);
-	logger.debug(got%d);
+	{
+		%s
+		var got = %s(%s);
+		logger.debug(got);
+	}
 `
-	for i, cs := range m.cases {
+	for _, cs := range m.cases {
 		t.Log(cs)
-		casesCode += fmt.Sprintf(caseCodeTmpl, i, cs.Function, formatArgs(cs.Args), i)
+		casesCode += fmt.Sprintf(caseCodeTmpl, cs.InitCode, cs.Function, formatArgs(cs.Args))
 	}
 
 	code := fmt.Sprintf(`
@@ -99,6 +103,7 @@ function funcTest(logger as Logger) as Boolean {
 			}
 		}
 	}
+	require.Equal(t, len(m.cases), i, "missing output from some cases")
 }
 
 func formatArgs(args []any) string {

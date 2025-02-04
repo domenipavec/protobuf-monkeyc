@@ -4,4 +4,52 @@ package example;
 
 message ExampleMessage {
   int32 i32 = 1;
+  int64 i64 = 2;
+  uint32 u32 = 3;
+  uint64 u64 = 4;
+  sint32 s32 = 5;
+  sint64 s64 = 6;
+
+  fixed32 f32 = 7;
+  fixed64 f64 = 8;
+  sfixed32 sf32 = 9;
+  sfixed64 sf64 = 10;
+  float fl = 11;
+  // double dl = 12; // double is not supported
+
+  string str = 13;
+  bytes byt = 14;
+
+  bool b = 15;
+  GlobalEnum ge = 16;
+  LocalEnum le = 17;
+  GlobalMessage gm = 18;
+  LocalMessage lm = 19;
+
+  repeated int64 ri64 = 20 [packed=false];
+  repeated sfixed32 rf32 = 21 [packed=false];
+  repeated sfixed64 rf64 = 22 [packed=false];
+  repeated string rstr = 23;
+  repeated GlobalMessage rgm = 24;
+  repeated int64 rpi64 = 25;
+  repeated sfixed32 rpf32 = 26;
+  repeated sfixed64 rpf64 = 27;
+
+  enum LocalEnum {
+    LA = 0;
+    LB = 1;
+  }
+
+  message LocalMessage {
+    string L1 = 1;
+  }
+}
+
+enum GlobalEnum {
+  A = 0;
+  B = 1;
+}
+
+message GlobalMessage {
+  int32 G1 = 1;
 }
