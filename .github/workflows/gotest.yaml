@@ -1,0 +1,14 @@
+name: Go
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: protoc-gen-monkeyc/go.mod
+      - name: Run tests
+        working-directory: protoc-gen-monkeyc
+        run: go test ./...
