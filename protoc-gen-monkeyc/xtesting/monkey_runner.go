@@ -121,6 +121,29 @@ func getCertPath(t *testing.T) string {
 	home, err := os.UserHomeDir()
 	require.NoError(t, err)
 
-	// TODO: create if doesn't exist
-	return filepath.Join(home, "garmin", "developerkey", "developer_key")
+	path := filepath.Join(home, "garmin", "developerkey", "developer_key")
+	if _, err := os.Stat(path); err != nil {
+		path = "./test.key"
+		if _, err := os.Stat(path); err != nil {
+			err = os.WriteFile(path, []byte{}, 0644)
+			require.NoError(t, err)
+			dockerArgs := []string{
+				"run",
+				"--rm",
+				"--entrypoint", "/bin/bash",
+				"-v", path + ":/key",
+				"--tmpfs", "/out",
+				"ghcr.io/matco/connectiq-tester:latest",
+				"-c", "openssl genrsa -out /out/key.pem 4096 && openssl pkcs8 -topk8 -inform PEM -outform DER -in /out/key.pem -out /key -nocrypt",
+			}
+			t.Log(strings.Join(dockerArgs, " "))
+			cmd := exec.Command(
+				"docker", dockerArgs...,
+			)
+			cmd.Stderr = os.Stderr
+			err = cmd.Run()
+			require.NoError(t, err)
+		}
+	}
+	return path
 }

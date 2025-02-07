@@ -345,39 +345,36 @@ func generateMessageDecode(w io.Writer, msg *descriptorpb.DescriptorProto) error
 			decoder = "%s.Decode(d.data())"
 			wireType = "LEN"
 		default:
-			// TODO reenable the error
-			// return fmt.Errorf("unsupported type: %s", *field.Type)
+			return fmt.Errorf("unsupported type: %s", *field.Type)
 		}
-		if decoder != "" { // TODO remove
-			if *field.Label == descriptorpb.FieldDescriptorProto_LABEL_REPEATED {
-				switch wireType {
-				case "VARINT", "I32", "I64":
-					fmt.Fprintln(cs, "switch (tag & 7) {")
-					wtsw := indent.New(cs, tab)
-					wtcs := indent.New(wtsw, tab)
-					fmt.Fprintf(wtsw, "case Protobuf.%s:\n", wireType)
-					addRepeatedFieldValue(wtcs, field, decoder)
-					fmt.Fprintln(wtcs, "break;")
-					fmt.Fprintln(wtsw, "case Protobuf.LEN:")
-					fmt.Fprintln(wtcs, "for (var endRemaining = d.remaining() - d.varint32(); d.remaining() > endRemaining;) {")
-					wtfor := indent.New(wtcs, tab)
-					addRepeatedFieldValue(wtfor, field, decoder)
-					fmt.Fprintln(wtcs, "}")
-					fmt.Fprintln(wtcs, "break;")
-					fmt.Fprintln(wtsw, "default:")
-					fmt.Fprintln(wtcs, `throw new Protobuf.Exception("invalid wire type");`)
-					fmt.Fprintln(cs, "}")
-				default:
-					fmt.Fprintf(cs, "Protobuf.assertWireType(tag, Protobuf.%s);\n", wireType)
-					addRepeatedFieldValue(cs, field, decoder)
-				}
-			} else {
+		if *field.Label == descriptorpb.FieldDescriptorProto_LABEL_REPEATED {
+			switch wireType {
+			case "VARINT", "I32", "I64":
+				fmt.Fprintln(cs, "switch (tag & 7) {")
+				wtsw := indent.New(cs, tab)
+				wtcs := indent.New(wtsw, tab)
+				fmt.Fprintf(wtsw, "case Protobuf.%s:\n", wireType)
+				addRepeatedFieldValue(wtcs, field, decoder)
+				fmt.Fprintln(wtcs, "break;")
+				fmt.Fprintln(wtsw, "case Protobuf.LEN:")
+				fmt.Fprintln(wtcs, "for (var endRemaining = d.remaining() - d.varint32(); d.remaining() > endRemaining;) {")
+				wtfor := indent.New(wtcs, tab)
+				addRepeatedFieldValue(wtfor, field, decoder)
+				fmt.Fprintln(wtcs, "}")
+				fmt.Fprintln(wtcs, "break;")
+				fmt.Fprintln(wtsw, "default:")
+				fmt.Fprintln(wtcs, `throw new Protobuf.Exception("invalid wire type");`)
+				fmt.Fprintln(cs, "}")
+			default:
 				fmt.Fprintf(cs, "Protobuf.assertWireType(tag, Protobuf.%s);\n", wireType)
-				if *field.Type == descriptorpb.FieldDescriptorProto_TYPE_MESSAGE {
-					fmt.Fprintf(cs, decoder+";\n", strcase.LowerCamelCase(*field.Name))
-				} else {
-					fmt.Fprintf(cs, "%s = %s;\n", strcase.LowerCamelCase(*field.Name), decoder)
-				}
+				addRepeatedFieldValue(cs, field, decoder)
+			}
+		} else {
+			fmt.Fprintf(cs, "Protobuf.assertWireType(tag, Protobuf.%s);\n", wireType)
+			if *field.Type == descriptorpb.FieldDescriptorProto_TYPE_MESSAGE {
+				fmt.Fprintf(cs, decoder+";\n", strcase.LowerCamelCase(*field.Name))
+			} else {
+				fmt.Fprintf(cs, "%s = %s;\n", strcase.LowerCamelCase(*field.Name), decoder)
 			}
 		}
 		fmt.Fprintln(cs, "break;")
