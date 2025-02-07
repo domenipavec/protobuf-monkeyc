@@ -79,6 +79,22 @@ module Protobuf {
         }
     }
 
+    function fromSignedNumber(v as Number) as Number {
+        var result = v >> 1;
+        if (v & 1 != 0) {
+            result = ~result;
+        }
+        return result;
+    }
+
+    function fromSignedLong(v as Long) as Long {
+        var result = v >> 1;
+        if (v & 1 != 0) {
+            result = ~result;
+        }
+        return result;
+    }
+
     function encodeVarint(v as Number or Long or Boolean) as ByteArray {
         if (v instanceof Boolean) {
             v = v ? 1 : 0;
@@ -95,5 +111,105 @@ module Protobuf {
             result.add(b);
         } while (v != 0);
         return result;
+    }
+
+    function assertWireType(tag as Number, wt as WireType) as Void {
+        if (((tag & 7) as WireType) != wt) {
+            throw new Exception("invalid wire type");
+        }
+    }
+
+    class Decoder {
+        private var input as ByteArray;
+        private var startIdx as Number;
+        private var endIdx as Number;
+
+        public function initialize(inp as ByteArray) {
+            input = inp;
+            startIdx = -1;
+            endIdx = 0;
+        }
+
+        public function varint32() as Number {
+            var result = 0;
+            for (var off = 0; true; off += 7) {
+                // negative numbers are always 64 bits, so that length is permitted
+                if (off >= 64) {
+                    throw new Exception("varint32 too long");
+                }
+                consume(1);
+                if (off < 32) {
+                    result |= (input[startIdx] & 0x7f).toNumber() << off;
+                }
+                if (input[startIdx]&(1<<7) == 0) {
+                    break;
+                }
+            }
+            return result;
+        }
+
+        public function varint64() as Long {
+            var result = 0l;
+            for (var off = 0; true; off += 7) {
+                if (off >= 64) {
+                    throw new Exception("varint64 too long");
+                }
+                consume(1);
+                result |= (input[startIdx] & 0x7f).toLong() << off;
+                if (input[startIdx]&(1<<7) == 0) {
+                    break;
+                }
+            }
+            return result;
+        }
+
+        public function number() as Number {
+            consume(4);
+            return input.decodeNumber(Lang.NUMBER_FORMAT_SINT32, {:offset => startIdx, :endianness => Lang.ENDIAN_LITTLE}) as Number;
+        }
+
+        public function float() as Float {
+            consume(4);
+            return input.decodeNumber(Lang.NUMBER_FORMAT_FLOAT, {:offset => startIdx, :endianness => Lang.ENDIAN_LITTLE}) as Float;
+        }
+
+        public function long() as Long {
+            consume(8);
+            var lower = input.decodeNumber(Lang.NUMBER_FORMAT_SINT32, {:offset => startIdx, :endianness => Lang.ENDIAN_LITTLE});
+            var upper = input.decodeNumber(Lang.NUMBER_FORMAT_SINT32, {:offset => startIdx+4, :endianness => Lang.ENDIAN_LITTLE});
+            return (upper.toLong() << 32) | (lower.toLong() & 0xffffffffl) ;
+        }
+
+        public function data() as ByteArray {
+            consume(varint32());
+            return input.slice(startIdx, endIdx);
+        }
+
+        public function string() as String {
+            return StringUtil.convertEncodedString(data(), {
+                :fromRepresentation => StringUtil.REPRESENTATION_BYTE_ARRAY,
+                :toRepresentation => StringUtil.REPRESENTATION_STRING_PLAIN_TEXT,
+                :encoding => StringUtil.CHAR_ENCODING_UTF8,
+            }) as String;
+        }
+
+        public function remaining() as Number {
+            return input.size() - endIdx;
+        }
+
+        private function consume(l as Number) as Void {
+            startIdx = endIdx;
+            endIdx = startIdx + l;
+            if (endIdx > input.size()) {
+                throw new Exception("decode out of range");
+            }
+        }
+    }
+
+    class Exception extends Lang.Exception {
+        function initialize(msg as String) {
+            Exception.initialize();
+            mMessage = msg;
+        }
     }
 }

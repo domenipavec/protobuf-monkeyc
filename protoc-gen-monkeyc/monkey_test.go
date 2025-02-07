@@ -8,6 +8,8 @@ import (
 	"math"
 	"math/rand/v2"
 	"os"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/domenipavec/protoc-gen-monkeyc/example"
@@ -16,6 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
+
+const outputSeparator = "#"
 
 func TestMain(m *testing.M) {
 	err := xtesting.StartSimulator()
@@ -27,6 +31,252 @@ func TestMain(m *testing.M) {
 		log.Fatal(err)
 	}
 	os.Exit(m.Run())
+}
+
+func TestDecode(t *testing.T) {
+	testCases := []struct {
+		Name    string
+		Message *example.ExampleMessage
+	}{
+		{
+			Name:    "empty",
+			Message: &example.ExampleMessage{},
+		},
+		{
+			Name: "all",
+			Message: &example.ExampleMessage{
+				I32:  12345,
+				I64:  1234567890123456789,
+				U32:  67890,
+				U64:  987654321098765432,
+				S32:  92590,
+				S64:  925909259092590925,
+				F32:  35604,
+				F64:  356043560435604356,
+				Sf32: 83987,
+				Sf64: 839878398783987839,
+				Fl:   123.456789,
+				Str:  "češnja",
+				Byt:  []byte{123, 78, 93, 0, 1},
+				B:    true,
+				Ge:   example.GlobalEnum_B,
+				Le:   example.ExampleMessage_LB,
+				Gm: &example.GlobalMessage{
+					G1: 34619,
+				},
+				Lm: &example.ExampleMessage_LocalMessage{
+					L1: "čmrlj",
+				},
+				Ri64: []int64{
+					0,
+					1,
+					17244,
+					116521165211652116,
+				},
+				Rf32: []int32{
+					0,
+					2,
+					22222,
+				},
+				Rf64: []int64{
+					0,
+					2,
+					75295,
+					7529575295,
+					752957529575295752,
+				},
+				Rstr: []string{"", "abcdefghijklmnopqrstuvwxyz", "haha"},
+				Rgm: []*example.GlobalMessage{
+					{},
+					{
+						G1: 68537,
+					},
+					{
+						G1: 76793,
+					},
+				},
+				Rpi64: []int64{
+					0,
+					1,
+					91403,
+					914039140391403914,
+				},
+				Rpf32: []int32{
+					0,
+					1,
+					56846,
+				},
+				Rpf64: []int64{
+					0,
+					1,
+					12175,
+					1217512175,
+					121751217512175121,
+				},
+			},
+		},
+		{
+			Name: "negative",
+			Message: &example.ExampleMessage{
+				I32:  -12345,
+				I64:  -1234567890123456789,
+				S32:  -92590,
+				S64:  -925909259092590925,
+				Sf32: -83987,
+				Sf64: -839878398783987839,
+				Fl:   -123.456789,
+				Gm: &example.GlobalMessage{
+					G1: -34619,
+				},
+				Ri64: []int64{
+					0,
+					-1,
+					-17244,
+					-116521165211652116,
+				},
+				Rf32: []int32{
+					0,
+					-2,
+					-22222,
+				},
+				Rf64: []int64{
+					0,
+					-2,
+					-75295,
+					-7529575295,
+					-752957529575295752,
+				},
+				Rgm: []*example.GlobalMessage{
+					{},
+					{
+						G1: -68537,
+					},
+					{
+						G1: -76793,
+					},
+				},
+				Rpi64: []int64{
+					0,
+					-1,
+					-91403,
+					-914039140391403914,
+				},
+				Rpf32: []int32{
+					0,
+					-1,
+					-56846,
+				},
+				Rpf64: []int64{
+					0,
+					-1,
+					-12175,
+					-1217512175,
+					-121751217512175121,
+				},
+			},
+		},
+	}
+
+	runner := xtesting.MonkeyRunner{}
+
+	monkeyParts := []string{
+		"pb.i32", "pb.i64", "pb.u32", "pb.u64", "pb.s32",
+		"pb.s64", "pb.f32", "pb.f64", "pb.sf32", "pb.sf64",
+		"pb.fl", "pb.str.toUtf8Array()", "pb.byt", "pb.b", "pb.ge",
+		"pb.le", "pb.gm.g1", "pb.lm.l1.toUtf8Array()", "pb.ri64", "pb.rf32",
+		"pb.rf64", "pb.rstr", "pb.rgm.size()", "pb.rgm.size() > 0 ? pb.rgm[0].g1 : 0", "pb.rgm.size() > 1 ? pb.rgm[1].g1 : 0",
+		"pb.rgm.size() > 2 ? pb.rgm[2].g1 : 0", "pb.rpi64", "pb.rpf32", "pb.rpf64",
+	}
+
+	for _, tc := range testCases {
+		data, err := proto.Marshal(tc.Message)
+		require.NoError(t, err)
+
+		runner.Run(xtesting.MonkeyRunnerCase{
+			InitCode: fmt.Sprintf(`
+	var pb = new ExampleMessage();
+	pb.Decode(%s);
+`, formatByteArray(data)),
+			Function: "Lang.format",
+			Args:     generateFormatArgs(monkeyParts...),
+			Callback: func(output string) {
+				t.Run(tc.Name, func(t *testing.T) {
+					t.Log(output)
+
+					parts := strings.Split(output, outputSeparator)
+					require.Len(t, parts, len(monkeyParts))
+
+					got := &example.ExampleMessage{}
+					got.I32 = xtesting.ParseInt[int32](t, parts[0])
+					got.I64 = xtesting.ParseInt[int64](t, parts[1])
+					got.U32 = xtesting.ParseInt[uint32](t, parts[2])
+					got.U64 = xtesting.ParseInt[uint64](t, parts[3])
+					got.S32 = xtesting.ParseInt[int32](t, parts[4])
+					got.S64 = xtesting.ParseInt[int64](t, parts[5])
+					got.F32 = xtesting.ParseInt[uint32](t, parts[6])
+					got.F64 = xtesting.ParseInt[uint64](t, parts[7])
+					got.Sf32 = xtesting.ParseInt[int32](t, parts[8])
+					got.Sf64 = xtesting.ParseInt[int64](t, parts[9])
+					got.Fl = xtesting.ParseFloat(t, parts[10])
+					got.Str = string(xtesting.ParseArray(t, parts[11], xtesting.ParseByte))
+					got.Byt = xtesting.ParseArray(t, parts[12], xtesting.ParseByte)
+					got.B = xtesting.ParseBool(t, parts[13])
+					got.Ge = xtesting.ParseInt[example.GlobalEnum](t, parts[14])
+					got.Le = xtesting.ParseInt[example.ExampleMessage_LocalEnum](t, parts[15])
+					gmg1 := xtesting.ParseInt[int32](t, parts[16])
+					if gmg1 != 0 {
+						got.Gm = &example.GlobalMessage{
+							G1: gmg1,
+						}
+					}
+					lml1 := string(xtesting.ParseArray(t, parts[17], xtesting.ParseByte))
+					if lml1 != "" {
+						got.Lm = &example.ExampleMessage_LocalMessage{
+							L1: lml1,
+						}
+					}
+					got.Ri64 = xtesting.ParseArray(t, parts[18], xtesting.ParseInt[int64])
+					got.Rf32 = xtesting.ParseArray(t, parts[19], xtesting.ParseInt[int32])
+					got.Rf64 = xtesting.ParseArray(t, parts[20], xtesting.ParseInt[int64])
+					got.Rstr = xtesting.ParseArray(t, parts[21], func(t *testing.T, s string) string { return s })
+					rgmn := xtesting.ParseInt[int](t, parts[22])
+					for i := 0; i < rgmn; i++ {
+						got.Rgm = append(got.Rgm, &example.GlobalMessage{
+							G1: xtesting.ParseInt[int32](t, parts[23+i]),
+						})
+					}
+					got.Rpi64 = xtesting.ParseArray(t, parts[26], xtesting.ParseInt[int64])
+					got.Rpf32 = xtesting.ParseArray(t, parts[27], xtesting.ParseInt[int32])
+					got.Rpf64 = xtesting.ParseArray(t, parts[28], xtesting.ParseInt[int64])
+
+					assert.EqualExportedValues(t, tc.Message, got)
+				})
+			},
+		})
+	}
+
+	runner.Execute(t)
+}
+
+func formatByteArray(input []byte) string {
+	strs := make([]string, len(input))
+	for i := range input {
+		strs[i] = strconv.Itoa(int(input[i]))
+	}
+	return fmt.Sprintf("[%s]b", strings.Join(strs, ", "))
+}
+
+func generateFormatArgs(vars ...string) []any {
+	first := `"`
+	for i := range vars {
+		if i != 0 {
+			first += outputSeparator
+		}
+		first += fmt.Sprintf("$%d$", i+1)
+	}
+	first += `"`
+	second := fmt.Sprintf("[%s]", strings.Join(vars, ", "))
+	return []any{first, second}
 }
 
 func TestEncode(t *testing.T) {
@@ -234,7 +484,7 @@ func TestEncode(t *testing.T) {
 					t.Log(output)
 
 					got := &example.ExampleMessage{}
-					data := xtesting.ParseByteArray(t, output)
+					data := xtesting.ParseArray(t, output, xtesting.ParseByte)
 					err := proto.Unmarshal(data, got)
 					require.NoError(t, err)
 
@@ -324,10 +574,119 @@ func TestEncodeVarint(t *testing.T) {
 				t.Run(fmt.Sprint(tc.Input), func(t *testing.T) {
 					t.Log(output)
 
-					got, err := binary.ReadUvarint(bytes.NewReader(xtesting.ParseByteArray(t, output)))
+					got, err := binary.ReadUvarint(bytes.NewReader(xtesting.ParseArray(t, output, xtesting.ParseByte)))
 					require.NoError(t, err)
 
 					assert.Equal(t, tc.Want, int64(got))
+				})
+			},
+		})
+	}
+
+	runner.Execute(t)
+}
+
+func TestDecoderVarint32(t *testing.T) {
+	testCases := []struct {
+		Value int32
+	}{
+		{
+			Value: 1,
+		},
+		{
+			Value: 127,
+		},
+		{
+			Value: 128,
+		},
+		{
+			Value: math.MaxInt32,
+		},
+		{
+			Value: -1,
+		},
+		{
+			Value: -123,
+		},
+		{
+			Value: math.MinInt32,
+		},
+		{
+			Value: rand.Int32(),
+		},
+	}
+
+	runner := xtesting.MonkeyRunner{}
+
+	for _, tc := range testCases {
+		data := binary.AppendUvarint([]byte{}, uint64(tc.Value))
+		runner.Run(xtesting.MonkeyRunnerCase{
+			InitCode: fmt.Sprintf("var d = new Protobuf.Decoder(%s);", formatByteArray(data)),
+			Function: "d.varint32",
+			Callback: func(output string) {
+				t.Run(fmt.Sprint(tc.Value), func(t *testing.T) {
+					t.Log(output)
+
+					assert.Equal(t, fmt.Sprint(tc.Value), output)
+				})
+			},
+		})
+	}
+
+	runner.Execute(t)
+}
+
+func TestDecoderVarint64(t *testing.T) {
+	testCases := []struct {
+		Value int64
+	}{
+		{
+			Value: 1,
+		},
+		{
+			Value: 127,
+		},
+		{
+			Value: 128,
+		},
+		{
+			Value: math.MaxInt32,
+		},
+		{
+			Value: math.MaxInt64,
+		},
+		{
+			Value: -1,
+		},
+		{
+			Value: -123,
+		},
+		{
+			Value: math.MinInt32,
+		},
+		{
+			Value: math.MinInt64,
+		},
+		{
+			Value: int64(rand.Int32()),
+		},
+		{
+			Value: int64(rand.Int64()),
+		},
+	}
+
+	runner := xtesting.MonkeyRunner{}
+
+	for _, tc := range testCases {
+		data := binary.AppendUvarint([]byte{}, uint64(tc.Value))
+		runner.Run(xtesting.MonkeyRunnerCase{
+			InitCode: fmt.Sprintf("var d = new Protobuf.Decoder(%s);", formatByteArray(data)),
+			Function: "d.varint64",
+			Callback: func(output string) {
+				t.Run(fmt.Sprint(tc.Value), func(t *testing.T) {
+					t.Log(output)
+
+					assert.Equal(t, fmt.Sprint(tc.Value), output)
 				})
 			},
 		})

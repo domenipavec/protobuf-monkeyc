@@ -170,6 +170,11 @@ func generateMessage(w io.Writer, msg *descriptorpb.DescriptorProto) error {
 		return err
 	}
 
+	err = generateMessageDecode(ind, msg)
+	if err != nil {
+		return err
+	}
+
 	fmt.Fprintln(w, "}")
 
 	return nil
@@ -283,6 +288,116 @@ func generateMessageEncode(w io.Writer, msg *descriptorpb.DescriptorProto) error
 	fmt.Fprintln(w, "}")
 
 	return nil
+}
+
+func generateMessageDecode(w io.Writer, msg *descriptorpb.DescriptorProto) error {
+	fmt.Fprintln(w, "public function Decode(input as ByteArray) as Void {")
+	ind := indent.New(w, tab)
+	fmt.Fprintln(ind, "var d = new Protobuf.Decoder(input);")
+	fmt.Fprintln(ind, "while (d.remaining() > 0) {")
+	loop := indent.New(ind, tab)
+	fmt.Fprintln(loop, "var tag = d.varint32();")
+	fmt.Fprintln(loop, "switch (tag >> 3) {")
+	sw := indent.New(loop, tab)
+
+	for _, field := range msg.Field {
+		fmt.Fprintf(sw, "case %d: {\n", *field.Number)
+		cs := indent.New(sw, tab)
+
+		var decoder, wireType string
+		switch *field.Type {
+		case descriptorpb.FieldDescriptorProto_TYPE_BOOL:
+			decoder = "d.varint32() != 0"
+			wireType = "VARINT"
+		case descriptorpb.FieldDescriptorProto_TYPE_ENUM:
+			decoder = fmt.Sprintf("d.varint32() as %s", typeNameToMonkey(*field.TypeName))
+			wireType = "VARINT"
+		case descriptorpb.FieldDescriptorProto_TYPE_INT32,
+			descriptorpb.FieldDescriptorProto_TYPE_UINT32:
+			decoder = "d.varint32()"
+			wireType = "VARINT"
+		case descriptorpb.FieldDescriptorProto_TYPE_SINT32:
+			decoder = "Protobuf.fromSignedNumber(d.varint32())"
+			wireType = "VARINT"
+		case descriptorpb.FieldDescriptorProto_TYPE_SINT64:
+			decoder = "Protobuf.fromSignedLong(d.varint64())"
+			wireType = "VARINT"
+		case descriptorpb.FieldDescriptorProto_TYPE_INT64,
+			descriptorpb.FieldDescriptorProto_TYPE_UINT64:
+			decoder = "d.varint64()"
+			wireType = "VARINT"
+		case descriptorpb.FieldDescriptorProto_TYPE_FIXED32, descriptorpb.FieldDescriptorProto_TYPE_SFIXED32:
+			decoder = "d.number()"
+			wireType = "I32"
+		case descriptorpb.FieldDescriptorProto_TYPE_FIXED64, descriptorpb.FieldDescriptorProto_TYPE_SFIXED64:
+			decoder = "d.long()"
+			wireType = "I64"
+		case descriptorpb.FieldDescriptorProto_TYPE_FLOAT:
+			decoder = "d.float()"
+			wireType = "I32"
+		case descriptorpb.FieldDescriptorProto_TYPE_BYTES:
+			decoder = "d.data()"
+			wireType = "LEN"
+		case descriptorpb.FieldDescriptorProto_TYPE_STRING:
+			decoder = "d.string()"
+			wireType = "LEN"
+		case descriptorpb.FieldDescriptorProto_TYPE_MESSAGE:
+			decoder = "%s.Decode(d.data())"
+			wireType = "LEN"
+		default:
+			// TODO reenable the error
+			// return fmt.Errorf("unsupported type: %s", *field.Type)
+		}
+		if decoder != "" { // TODO remove
+			if *field.Label == descriptorpb.FieldDescriptorProto_LABEL_REPEATED {
+				switch wireType {
+				case "VARINT", "I32", "I64":
+					fmt.Fprintln(cs, "switch (tag & 7) {")
+					wtsw := indent.New(cs, tab)
+					wtcs := indent.New(wtsw, tab)
+					fmt.Fprintf(wtsw, "case Protobuf.%s:\n", wireType)
+					addRepeatedFieldValue(wtcs, field, decoder)
+					fmt.Fprintln(wtcs, "break;")
+					fmt.Fprintln(wtsw, "case Protobuf.LEN:")
+					fmt.Fprintln(wtcs, "for (var endRemaining = d.remaining() - d.varint32(); d.remaining() > endRemaining;) {")
+					wtfor := indent.New(wtcs, tab)
+					addRepeatedFieldValue(wtfor, field, decoder)
+					fmt.Fprintln(wtcs, "}")
+					fmt.Fprintln(wtcs, "break;")
+					fmt.Fprintln(wtsw, "default:")
+					fmt.Fprintln(wtcs, `throw new Protobuf.Exception("invalid wire type");`)
+					fmt.Fprintln(cs, "}")
+				default:
+					fmt.Fprintf(cs, "Protobuf.assertWireType(tag, Protobuf.%s);\n", wireType)
+					addRepeatedFieldValue(cs, field, decoder)
+				}
+			} else {
+				fmt.Fprintf(cs, "Protobuf.assertWireType(tag, Protobuf.%s);\n", wireType)
+				if *field.Type == descriptorpb.FieldDescriptorProto_TYPE_MESSAGE {
+					fmt.Fprintf(cs, decoder+";\n", strcase.LowerCamelCase(*field.Name))
+				} else {
+					fmt.Fprintf(cs, "%s = %s;\n", strcase.LowerCamelCase(*field.Name), decoder)
+				}
+			}
+		}
+		fmt.Fprintln(cs, "break;")
+		fmt.Fprintln(sw, "}")
+	}
+	fmt.Fprintln(loop, "}")
+	fmt.Fprintln(ind, "}")
+	fmt.Fprintln(w, "}")
+
+	return nil
+}
+
+func addRepeatedFieldValue(w io.Writer, field *descriptorpb.FieldDescriptorProto, decoder string) {
+	if *field.Type == descriptorpb.FieldDescriptorProto_TYPE_MESSAGE {
+		fmt.Fprintf(w, "var msg = new %s();\n", typeNameToMonkey(*field.TypeName))
+		fmt.Fprintf(w, decoder+";\n", "msg")
+		fmt.Fprintf(w, "%s.add(msg);\n", strcase.LowerCamelCase(*field.Name))
+	} else {
+		fmt.Fprintf(w, "%s.add(%s);\n", strcase.LowerCamelCase(*field.Name), decoder)
+	}
 }
 
 func isPacked(field *descriptorpb.FieldDescriptorProto) bool {
