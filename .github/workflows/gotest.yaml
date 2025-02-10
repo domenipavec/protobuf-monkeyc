@@ -1,7 +1,7 @@
-name: Go
+name: Go Test
 on: [push]
 jobs:
-  build:
+  gotest:
     runs-on: ubuntu-latest
 
     steps:

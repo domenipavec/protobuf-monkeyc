@@ -6,7 +6,13 @@ class ExampleApp extends Application.AppBase {
 
     function initialize() {
         AppBase.initialize();
-        System.print(Protobuf.encodeVarint(123));
+        var src = new ExampleMessage();
+        src.i32 = 123;
+        var byteArray = src.Encode();
+
+        var dst = new ExampleMessage();
+        dst.Decode(byteArray);
+        System.print(dst.i32);
     }
 
     // onStart() is called on application start up

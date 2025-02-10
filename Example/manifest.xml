@@ -7,7 +7,7 @@
         <iq:permissions/>
         <iq:languages/>
         <iq:barrels>
-            <iq:depends name="Protobuf" version="0.0.0"/>
+            <iq:depends name="Protobuf" version="0.1.0"/>
         </iq:barrels>
     </iq:application>
 </iq:manifest>
