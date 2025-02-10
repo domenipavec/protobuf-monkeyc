@@ -6,7 +6,7 @@ Supports encoding and decoding of all basic types except `double`. GRPC is not s
 
 ## Usage
 
-1. If you haven’t installed the protoc compiler, download the package and follow the instructions in the README.
+1. If you haven’t installed the protoc compiler, [download the package](https://protobuf.dev/downloads) and follow the instructions in the README.
 2. Download `protoc-gen-monkeyc` from [releases](https://github.com/domenipavec/protobuf-monkeyc/releases) and install it in your PATH.
 3. Run the compiler on your proto file:
 
