@@ -113,6 +113,17 @@ func TestDecode(t *testing.T) {
 					1217512175,
 					121751217512175121,
 				},
+				Oo: &example.ExampleMessage_Oostr{
+					Oostr: "one of string",
+				},
+				Oi32: proto.Int32(667),
+				Ostr: proto.String("optional string"),
+				Ogm: &example.GlobalMessage{
+					G1: 668,
+				},
+				Olm: &example.ExampleMessage_LocalMessage{
+					L1: "optional lm",
+				},
 			},
 		},
 		{
@@ -173,6 +184,11 @@ func TestDecode(t *testing.T) {
 					-1217512175,
 					-121751217512175121,
 				},
+				Oo: &example.ExampleMessage_Oogm{
+					Oogm: &example.GlobalMessage{
+						G1: -666,
+					},
+				},
 			},
 		},
 	}
@@ -183,9 +199,11 @@ func TestDecode(t *testing.T) {
 		"pb.i32", "pb.i64", "pb.u32", "pb.u64", "pb.s32",
 		"pb.s64", "pb.f32", "pb.f64", "pb.sf32", "pb.sf64",
 		"pb.fl", "pb.str.toUtf8Array()", "pb.byt", "pb.b", "pb.ge",
-		"pb.le", "pb.gm.g1", "pb.lm.l1.toUtf8Array()", "pb.ri64", "pb.rf32",
+		"pb.le", "pb.GetGm().g1", "pb.GetLm().l1.toUtf8Array()", "pb.ri64", "pb.rf32",
 		"pb.rf64", "pb.rstr", "pb.rgm.size()", "pb.rgm.size() > 0 ? pb.rgm[0].g1 : 0", "pb.rgm.size() > 1 ? pb.rgm[1].g1 : 0",
 		"pb.rgm.size() > 2 ? pb.rgm[2].g1 : 0", "pb.rpi64", "pb.rpf32", "pb.rpf64",
+		"pb.GetOogm().g1", "pb.GetOostr()", "pb.GetOoi32()",
+		"pb.GetOi32()", "pb.GetOstr()", "pb.GetOgm().g1", "pb.GetOlm().l1",
 	}
 
 	for _, tc := range testCases {
@@ -248,6 +266,43 @@ func TestDecode(t *testing.T) {
 					got.Rpi64 = xtesting.ParseArray(t, parts[26], xtesting.ParseInt[int64])
 					got.Rpf32 = xtesting.ParseArray(t, parts[27], xtesting.ParseInt[int32])
 					got.Rpf64 = xtesting.ParseArray(t, parts[28], xtesting.ParseInt[int64])
+					oogm := xtesting.ParseInt[int32](t, parts[29])
+					if oogm != 0 {
+						got.Oo = &example.ExampleMessage_Oogm{
+							Oogm: &example.GlobalMessage{
+								G1: oogm,
+							},
+						}
+					}
+					if parts[30] != "" {
+						got.Oo = &example.ExampleMessage_Oostr{
+							Oostr: parts[30],
+						}
+					}
+					ooi32 := xtesting.ParseInt[int32](t, parts[31])
+					if ooi32 != 0 {
+						got.Oo = &example.ExampleMessage_Ooi32{
+							Ooi32: ooi32,
+						}
+					}
+					oi32 := xtesting.ParseInt[int32](t, parts[32])
+					if oi32 != 0 {
+						got.Oi32 = proto.Int32(oi32)
+					}
+					if parts[33] != "" {
+						got.Ostr = proto.String(parts[33])
+					}
+					ogm := xtesting.ParseInt[int32](t, parts[34])
+					if ogm != 0 {
+						got.Ogm = &example.GlobalMessage{
+							G1: ogm,
+						}
+					}
+					if parts[35] != "" {
+						got.Olm = &example.ExampleMessage_LocalMessage{
+							L1: parts[35],
+						}
+					}
 
 					assert.EqualExportedValues(t, tc.Message, got)
 				})
@@ -308,8 +363,12 @@ func TestEncode(t *testing.T) {
 	pb.b = true;
 	pb.ge = B;
 	pb.le = ExampleMessage.LB;
-	pb.gm.g1 = 34619;
-	pb.lm.l1 = "čmrlj";
+	var gm = new GlobalMessage();
+	gm.g1 = 34619;
+	pb.gm = gm;
+	var lm = new ExampleMessage.LocalMessage();
+	lm.l1 = "čmrlj";
+	pb.lm = lm;
 	pb.ri64 = [0l, 1l, 17244l, 116521165211652116l];
 	pb.rf32 = [0, 2, 22222];
 	pb.rf64 = [0l, 2l, 75295l, 7529575295l, 752957529575295752l];
@@ -320,6 +379,14 @@ func TestEncode(t *testing.T) {
 	pb.rpi64 = [0l, 1l, 91403l, 914039140391403914l];
 	pb.rpf32 = [0, 1, 56846];
 	pb.rpf64 = [0l, 1l, 12175l, 1217512175l, 121751217512175121l];
+	pb.oogm = new GlobalMessage();
+	pb.oogm.g1 = 666;
+	pb.oi32 = 667;
+	pb.ostr = "optional str";
+	pb.ogm = new GlobalMessage();
+	pb.ogm.g1 = 668;
+	pb.olm = new ExampleMessage.LocalMessage();
+	pb.olm.l1 = "optional lm";
 `,
 			Want: &example.ExampleMessage{
 				I32:  12345,
@@ -390,6 +457,19 @@ func TestEncode(t *testing.T) {
 					1217512175,
 					121751217512175121,
 				},
+				Oo: &example.ExampleMessage_Oogm{
+					Oogm: &example.GlobalMessage{
+						G1: 666,
+					},
+				},
+				Oi32: proto.Int32(667),
+				Ostr: proto.String("optional str"),
+				Ogm: &example.GlobalMessage{
+					G1: 668,
+				},
+				Olm: &example.ExampleMessage_LocalMessage{
+					L1: "optional lm",
+				},
 			},
 		},
 		{
@@ -402,7 +482,9 @@ func TestEncode(t *testing.T) {
 	pb.sf32 = -83987;
 	pb.sf64 = -839878398783987839l;
 	pb.fl = -123.456789;
-	pb.gm.g1 = -34619;
+	var gm = new GlobalMessage();
+	gm.g1 = -34619;
+	pb.gm = gm;
 	pb.ri64 = [0l, -1l, -17244l, -116521165211652116l];
 	pb.rf32 = [0, -2, -22222];
 	pb.rf64 = [0l, -2l, -75295l, -7529575295l, -752957529575295752l];
@@ -412,6 +494,7 @@ func TestEncode(t *testing.T) {
 	pb.rpi64 = [0l, -1l, -91403l, -914039140391403914l];
 	pb.rpf32 = [0, -1, -56846];
 	pb.rpf64 = [0l, -1l, -12175l, -1217512175l, -121751217512175121l];
+	pb.ooi32 = -666;
 `,
 			Want: &example.ExampleMessage{
 				I32:  -12345,
@@ -468,6 +551,9 @@ func TestEncode(t *testing.T) {
 					-12175,
 					-1217512175,
 					-121751217512175121,
+				},
+				Oo: &example.ExampleMessage_Ooi32{
+					Ooi32: -666,
 				},
 			},
 		},

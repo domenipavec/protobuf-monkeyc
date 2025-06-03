@@ -15,6 +15,7 @@ class ExampleMessage {
             result.addAll(Protobuf.encodeFieldLen(1, l1, false));
             return result;
         }
+    
         public function Decode(input as ByteArray) as Void {
             var d = new Protobuf.Decoder(input);
             while (d.remaining() > 0) {
@@ -28,6 +29,10 @@ class ExampleMessage {
                 }
             }
         }
+        public function GetL1() as String {
+            return l1;
+        }
+        
     }
 
     enum LocalEnum {
@@ -51,8 +56,8 @@ class ExampleMessage {
     public var b as Boolean;
     public var ge as GlobalEnum;
     public var le as LocalEnum;
-    public var gm as GlobalMessage;
-    public var lm as LocalMessage;
+    public var gm as GlobalMessage or Null;
+    public var lm as LocalMessage or Null;
     public var ri64 as Array<Long>;
     public var rf32 as Array<Number>;
     public var rf64 as Array<Long>;
@@ -61,6 +66,13 @@ class ExampleMessage {
     public var rpi64 as Array<Long>;
     public var rpf32 as Array<Number>;
     public var rpf64 as Array<Long>;
+    public var oogm as GlobalMessage or Null;
+    public var oostr as String or Null;
+    public var ooi32 as Number or Null;
+    public var oi32 as Number or Null;
+    public var ostr as String or Null;
+    public var ogm as GlobalMessage or Null;
+    public var olm as LocalMessage or Null;
     
     public function initialize() {
         i32 = 0;
@@ -79,8 +91,8 @@ class ExampleMessage {
         b = false;
         ge = 0 as GlobalEnum;
         le = 0 as LocalEnum;
-        gm = new GlobalMessage();
-        lm = new LocalMessage();
+        gm = null;
+        lm = null;
         ri64 = [];
         rf32 = [];
         rf64 = [];
@@ -89,6 +101,13 @@ class ExampleMessage {
         rpi64 = [];
         rpf32 = [];
         rpf64 = [];
+        oogm = null;
+        oostr = null;
+        ooi32 = null;
+        oi32 = null;
+        ostr = null;
+        ogm = null;
+        olm = null;
     }
 
     public function Encode() as ByteArray {
@@ -109,8 +128,12 @@ class ExampleMessage {
         result.addAll(Protobuf.encodeFieldVarint(15, b, false));
         result.addAll(Protobuf.encodeFieldVarint(16, ge, false));
         result.addAll(Protobuf.encodeFieldVarint(17, le, false));
-        result.addAll(Protobuf.encodeFieldLen(18, gm.Encode(), false));
-        result.addAll(Protobuf.encodeFieldLen(19, lm.Encode(), false));
+        if (gm != null) {
+            result.addAll(Protobuf.encodeFieldLen(18, gm.Encode(), true));
+        }
+        if (lm != null) {
+            result.addAll(Protobuf.encodeFieldLen(19, lm.Encode(), true));
+        }
         for (var i = 0; i < ri64.size(); i++) {
             result.addAll(Protobuf.encodeFieldVarint(20, ri64[i], true));
         }
@@ -147,8 +170,30 @@ class ExampleMessage {
             }
             result.addAll(Protobuf.encodeFieldLen(27, packed, false));
         }
+        if (oogm != null) {
+            result.addAll(Protobuf.encodeFieldLen(28, oogm.Encode(), true));
+        }
+        if (oostr != null) {
+            result.addAll(Protobuf.encodeFieldLen(29, oostr, true));
+        }
+        if (ooi32 != null) {
+            result.addAll(Protobuf.encodeFieldVarint(30, ooi32, true));
+        }
+        if (oi32 != null) {
+            result.addAll(Protobuf.encodeFieldVarint(31, oi32, true));
+        }
+        if (ostr != null) {
+            result.addAll(Protobuf.encodeFieldLen(32, ostr, true));
+        }
+        if (ogm != null) {
+            result.addAll(Protobuf.encodeFieldLen(33, ogm.Encode(), true));
+        }
+        if (olm != null) {
+            result.addAll(Protobuf.encodeFieldLen(34, olm.Encode(), true));
+        }
         return result;
     }
+
     public function Decode(input as ByteArray) as Void {
         var d = new Protobuf.Decoder(input);
         while (d.remaining() > 0) {
@@ -236,12 +281,22 @@ class ExampleMessage {
                 }
                 case 18: {
                     Protobuf.assertWireType(tag, Protobuf.LEN);
-                    gm.Decode(d.data());
+                    if (gm == null) {
+                        gm = new GlobalMessage();
+                    }
+                    if (gm != null) {
+                        gm.Decode(d.data());
+                    }
                     break;
                 }
                 case 19: {
                     Protobuf.assertWireType(tag, Protobuf.LEN);
-                    lm.Decode(d.data());
+                    if (lm == null) {
+                        lm = new LocalMessage();
+                    }
+                    if (lm != null) {
+                        lm.Decode(d.data());
+                    }
                     break;
                 }
                 case 20: {
@@ -346,9 +401,221 @@ class ExampleMessage {
                     }
                     break;
                 }
+                case 28: {
+                    Protobuf.assertWireType(tag, Protobuf.LEN);
+                    if (oogm == null) {
+                        oogm = new GlobalMessage();
+                    }
+                    if (oogm != null) {
+                        oogm.Decode(d.data());
+                    }
+                    break;
+                }
+                case 29: {
+                    Protobuf.assertWireType(tag, Protobuf.LEN);
+                    oostr = d.string();
+                    break;
+                }
+                case 30: {
+                    Protobuf.assertWireType(tag, Protobuf.VARINT);
+                    ooi32 = d.varint32();
+                    break;
+                }
+                case 31: {
+                    Protobuf.assertWireType(tag, Protobuf.VARINT);
+                    oi32 = d.varint32();
+                    break;
+                }
+                case 32: {
+                    Protobuf.assertWireType(tag, Protobuf.LEN);
+                    ostr = d.string();
+                    break;
+                }
+                case 33: {
+                    Protobuf.assertWireType(tag, Protobuf.LEN);
+                    if (ogm == null) {
+                        ogm = new GlobalMessage();
+                    }
+                    if (ogm != null) {
+                        ogm.Decode(d.data());
+                    }
+                    break;
+                }
+                case 34: {
+                    Protobuf.assertWireType(tag, Protobuf.LEN);
+                    if (olm == null) {
+                        olm = new LocalMessage();
+                    }
+                    if (olm != null) {
+                        olm.Decode(d.data());
+                    }
+                    break;
+                }
             }
         }
     }
+    public function GetI32() as Number {
+        return i32;
+    }
+    
+    public function GetI64() as Long {
+        return i64;
+    }
+    
+    public function GetU32() as Number {
+        return u32;
+    }
+    
+    public function GetU64() as Long {
+        return u64;
+    }
+    
+    public function GetS32() as Number {
+        return s32;
+    }
+    
+    public function GetS64() as Long {
+        return s64;
+    }
+    
+    public function GetF32() as Number {
+        return f32;
+    }
+    
+    public function GetF64() as Long {
+        return f64;
+    }
+    
+    public function GetSf32() as Number {
+        return sf32;
+    }
+    
+    public function GetSf64() as Long {
+        return sf64;
+    }
+    
+    public function GetFl() as Float {
+        return fl;
+    }
+    
+    public function GetStr() as String {
+        return str;
+    }
+    
+    public function GetByt() as ByteArray {
+        return byt;
+    }
+    
+    public function GetB() as Boolean {
+        return b;
+    }
+    
+    public function GetGe() as GlobalEnum {
+        return ge;
+    }
+    
+    public function GetLe() as LocalEnum {
+        return le;
+    }
+    
+    public function GetGm() as GlobalMessage {
+        if (gm != null) {
+            return gm;
+        }
+        return new GlobalMessage();
+    }
+    
+    public function GetLm() as LocalMessage {
+        if (lm != null) {
+            return lm;
+        }
+        return new LocalMessage();
+    }
+    
+    public function GetRi64() as Array<Long> {
+        return ri64;
+    }
+    
+    public function GetRf32() as Array<Number> {
+        return rf32;
+    }
+    
+    public function GetRf64() as Array<Long> {
+        return rf64;
+    }
+    
+    public function GetRstr() as Array<String> {
+        return rstr;
+    }
+    
+    public function GetRgm() as Array<GlobalMessage> {
+        if (rgm != null) {
+            return rgm;
+        }
+        return [];
+    }
+    
+    public function GetRpi64() as Array<Long> {
+        return rpi64;
+    }
+    
+    public function GetRpf32() as Array<Number> {
+        return rpf32;
+    }
+    
+    public function GetRpf64() as Array<Long> {
+        return rpf64;
+    }
+    
+    public function GetOogm() as GlobalMessage {
+        if (oogm != null) {
+            return oogm;
+        }
+        return new GlobalMessage();
+    }
+    
+    public function GetOostr() as String {
+        if (oostr != null) {
+            return oostr;
+        }
+        return "";
+    }
+    
+    public function GetOoi32() as Number {
+        if (ooi32 != null) {
+            return ooi32;
+        }
+        return 0;
+    }
+    
+    public function GetOi32() as Number {
+        if (oi32 != null) {
+            return oi32;
+        }
+        return 0;
+    }
+    
+    public function GetOstr() as String {
+        if (ostr != null) {
+            return ostr;
+        }
+        return "";
+    }
+    
+    public function GetOgm() as GlobalMessage {
+        if (ogm != null) {
+            return ogm;
+        }
+        return new GlobalMessage();
+    }
+    
+    public function GetOlm() as LocalMessage {
+        if (olm != null) {
+            return olm;
+        }
+        return new LocalMessage();
+    }
+    
 }
 
 class GlobalMessage {
@@ -363,6 +630,7 @@ class GlobalMessage {
         result.addAll(Protobuf.encodeFieldVarint(1, g1, false));
         return result;
     }
+
     public function Decode(input as ByteArray) as Void {
         var d = new Protobuf.Decoder(input);
         while (d.remaining() > 0) {
@@ -376,6 +644,10 @@ class GlobalMessage {
             }
         }
     }
+    public function GetG1() as Number {
+        return g1;
+    }
+    
 }
 
 enum GlobalEnum {

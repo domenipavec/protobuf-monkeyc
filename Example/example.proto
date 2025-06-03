@@ -35,6 +35,17 @@ message ExampleMessage {
   repeated sfixed32 rpf32 = 26;
   repeated sfixed64 rpf64 = 27;
 
+  oneof oo {
+    GlobalMessage oogm = 28;
+    string oostr = 29;
+    int32 ooi32 = 30;
+  }
+
+  optional int32 oi32 = 31;
+  optional string ostr = 32;
+  optional GlobalMessage ogm = 33;
+  optional LocalMessage olm = 34;
+
   enum LocalEnum {
     LA = 0;
     LB = 1;

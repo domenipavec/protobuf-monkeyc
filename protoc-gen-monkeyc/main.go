@@ -38,7 +38,9 @@ func run() error {
 		return err
 	}
 
-	resp := &pluginpb.CodeGeneratorResponse{}
+	resp := &pluginpb.CodeGeneratorResponse{
+		SupportedFeatures: protopkg.Uint64(uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)),
+	}
 	for _, fn := range req.FileToGenerate {
 		proto := findProto(req.ProtoFile, fn)
 		result, err := generateFile(fn, proto)
@@ -125,35 +127,9 @@ func generateMessage(w io.Writer, msg *descriptorpb.DescriptorProto) error {
 	}
 
 	for _, field := range msg.Field {
-		var typ string
-		switch field.GetType() {
-		case descriptorpb.FieldDescriptorProto_TYPE_FLOAT:
-			typ = "Float"
-		case descriptorpb.FieldDescriptorProto_TYPE_INT32,
-			descriptorpb.FieldDescriptorProto_TYPE_UINT32,
-			descriptorpb.FieldDescriptorProto_TYPE_SINT32,
-			descriptorpb.FieldDescriptorProto_TYPE_FIXED32,
-			descriptorpb.FieldDescriptorProto_TYPE_SFIXED32:
-			typ = "Number"
-		case descriptorpb.FieldDescriptorProto_TYPE_INT64,
-			descriptorpb.FieldDescriptorProto_TYPE_UINT64,
-			descriptorpb.FieldDescriptorProto_TYPE_SINT64,
-			descriptorpb.FieldDescriptorProto_TYPE_FIXED64,
-			descriptorpb.FieldDescriptorProto_TYPE_SFIXED64:
-			typ = "Long"
-		case descriptorpb.FieldDescriptorProto_TYPE_BOOL:
-			typ = "Boolean"
-		case descriptorpb.FieldDescriptorProto_TYPE_STRING:
-			typ = "String"
-		case descriptorpb.FieldDescriptorProto_TYPE_BYTES:
-			typ = "ByteArray"
-		case descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_TYPE_ENUM:
-			typ = typeNameToMonkey(field.GetTypeName())
-		default:
-			return fmt.Errorf("unsupported type: %s", field.GetType())
-		}
-		if field.GetLabel() == descriptorpb.FieldDescriptorProto_LABEL_REPEATED {
-			typ = fmt.Sprintf("Array<%s>", typ)
+		typ, err := getType(field, true)
+		if err != nil {
+			return err
 		}
 		fmt.Fprintf(ind, "public var %s as %s;\n", strcase.LowerCamelCase(field.GetName()), typ)
 	}
@@ -169,15 +145,65 @@ func generateMessage(w io.Writer, msg *descriptorpb.DescriptorProto) error {
 	if err != nil {
 		return err
 	}
+	fmt.Fprintln(w)
 
 	err = generateMessageDecode(ind, msg)
 	if err != nil {
 		return err
 	}
 
+	for _, field := range msg.Field {
+		err = generateGetter(ind, field)
+		if err != nil {
+			return err
+		}
+	}
+
 	fmt.Fprintln(w, "}")
 
 	return nil
+}
+
+func canBeNull(field *descriptorpb.FieldDescriptorProto) bool {
+	return field.GetProto3Optional() ||
+		field.GetType() == descriptorpb.FieldDescriptorProto_TYPE_MESSAGE ||
+		field.OneofIndex != nil
+}
+
+func getType(field *descriptorpb.FieldDescriptorProto, nullable bool) (string, error) {
+	var typ string
+	switch field.GetType() {
+	case descriptorpb.FieldDescriptorProto_TYPE_FLOAT:
+		typ = "Float"
+	case descriptorpb.FieldDescriptorProto_TYPE_INT32,
+		descriptorpb.FieldDescriptorProto_TYPE_UINT32,
+		descriptorpb.FieldDescriptorProto_TYPE_SINT32,
+		descriptorpb.FieldDescriptorProto_TYPE_FIXED32,
+		descriptorpb.FieldDescriptorProto_TYPE_SFIXED32:
+		typ = "Number"
+	case descriptorpb.FieldDescriptorProto_TYPE_INT64,
+		descriptorpb.FieldDescriptorProto_TYPE_UINT64,
+		descriptorpb.FieldDescriptorProto_TYPE_SINT64,
+		descriptorpb.FieldDescriptorProto_TYPE_FIXED64,
+		descriptorpb.FieldDescriptorProto_TYPE_SFIXED64:
+		typ = "Long"
+	case descriptorpb.FieldDescriptorProto_TYPE_BOOL:
+		typ = "Boolean"
+	case descriptorpb.FieldDescriptorProto_TYPE_STRING:
+		typ = "String"
+	case descriptorpb.FieldDescriptorProto_TYPE_BYTES:
+		typ = "ByteArray"
+	case descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_TYPE_ENUM:
+		typ = typeNameToMonkey(field.GetTypeName())
+	default:
+		return "", fmt.Errorf("unsupported type: %s", field.GetType())
+	}
+	if field.GetLabel() == descriptorpb.FieldDescriptorProto_LABEL_REPEATED {
+		typ = fmt.Sprintf("Array<%s>", typ)
+	} else if canBeNull(field) && nullable {
+		typ = typ + " or Null"
+	}
+	return typ, nil
 }
 
 func typeNameToMonkey(typeName string) string {
@@ -185,42 +211,42 @@ func typeNameToMonkey(typeName string) string {
 	return parts[len(parts)-1]
 }
 
+func generateGetter(w io.Writer, field *descriptorpb.FieldDescriptorProto) error {
+	typ, err := getType(field, false)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(w, "public function Get%s() as %s {\n", strcase.UpperCamelCase(field.GetName()), typ)
+	ind := indent.New(w, tab)
+	if canBeNull(field) {
+		zero, err := fieldZero(field)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(ind, "if (%s != null) {\n", strcase.LowerCamelCase(field.GetName()))
+		ind2 := indent.New(ind, tab)
+		fmt.Fprintf(ind2, "return %s;\n", strcase.LowerCamelCase(field.GetName()))
+		fmt.Fprintln(ind, "}")
+		fmt.Fprintf(ind, "return %s;\n", zero)
+	} else {
+		fmt.Fprintf(ind, "return %s;\n", strcase.LowerCamelCase(field.GetName()))
+	}
+	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w, "")
+	return nil
+}
+
 func generateMessageInitialize(w io.Writer, msg *descriptorpb.DescriptorProto) error {
 	fmt.Fprintln(w, "public function initialize() {")
 	ind := indent.New(w, tab)
 
 	for _, field := range msg.Field {
-		var zero string
-		switch field.GetType() {
-		case descriptorpb.FieldDescriptorProto_TYPE_FLOAT:
-			zero = "0.0"
-		case descriptorpb.FieldDescriptorProto_TYPE_INT32,
-			descriptorpb.FieldDescriptorProto_TYPE_UINT32,
-			descriptorpb.FieldDescriptorProto_TYPE_SINT32,
-			descriptorpb.FieldDescriptorProto_TYPE_FIXED32,
-			descriptorpb.FieldDescriptorProto_TYPE_SFIXED32:
-			zero = "0"
-		case descriptorpb.FieldDescriptorProto_TYPE_INT64,
-			descriptorpb.FieldDescriptorProto_TYPE_UINT64,
-			descriptorpb.FieldDescriptorProto_TYPE_SINT64,
-			descriptorpb.FieldDescriptorProto_TYPE_FIXED64,
-			descriptorpb.FieldDescriptorProto_TYPE_SFIXED64:
-			zero = "0l"
-		case descriptorpb.FieldDescriptorProto_TYPE_BOOL:
-			zero = "false"
-		case descriptorpb.FieldDescriptorProto_TYPE_STRING:
-			zero = `""`
-		case descriptorpb.FieldDescriptorProto_TYPE_BYTES:
-			zero = `[]b`
-		case descriptorpb.FieldDescriptorProto_TYPE_ENUM:
-			zero = fmt.Sprintf("0 as %s", typeNameToMonkey(field.GetTypeName()))
-		case descriptorpb.FieldDescriptorProto_TYPE_MESSAGE:
-			zero = fmt.Sprintf("new %s()", typeNameToMonkey(field.GetTypeName()))
-		default:
-			return fmt.Errorf("unsupported type: %s", field.GetType())
+		zero, err := fieldZero(field)
+		if err != nil {
+			return err
 		}
-		if field.GetLabel() == descriptorpb.FieldDescriptorProto_LABEL_REPEATED {
-			zero = "[]"
+		if canBeNull(field) && field.GetLabel() != descriptorpb.FieldDescriptorProto_LABEL_REPEATED {
+			zero = "null"
 		}
 		fmt.Fprintf(ind, "%s = %s;\n", strcase.LowerCamelCase(field.GetName()), zero)
 	}
@@ -228,6 +254,42 @@ func generateMessageInitialize(w io.Writer, msg *descriptorpb.DescriptorProto) e
 	fmt.Fprintln(w, "}")
 
 	return nil
+}
+
+func fieldZero(field *descriptorpb.FieldDescriptorProto) (string, error) {
+	var zero string
+	switch field.GetType() {
+	case descriptorpb.FieldDescriptorProto_TYPE_FLOAT:
+		zero = "0.0"
+	case descriptorpb.FieldDescriptorProto_TYPE_INT32,
+		descriptorpb.FieldDescriptorProto_TYPE_UINT32,
+		descriptorpb.FieldDescriptorProto_TYPE_SINT32,
+		descriptorpb.FieldDescriptorProto_TYPE_FIXED32,
+		descriptorpb.FieldDescriptorProto_TYPE_SFIXED32:
+		zero = "0"
+	case descriptorpb.FieldDescriptorProto_TYPE_INT64,
+		descriptorpb.FieldDescriptorProto_TYPE_UINT64,
+		descriptorpb.FieldDescriptorProto_TYPE_SINT64,
+		descriptorpb.FieldDescriptorProto_TYPE_FIXED64,
+		descriptorpb.FieldDescriptorProto_TYPE_SFIXED64:
+		zero = "0l"
+	case descriptorpb.FieldDescriptorProto_TYPE_BOOL:
+		zero = "false"
+	case descriptorpb.FieldDescriptorProto_TYPE_STRING:
+		zero = `""`
+	case descriptorpb.FieldDescriptorProto_TYPE_BYTES:
+		zero = `[]b`
+	case descriptorpb.FieldDescriptorProto_TYPE_ENUM:
+		zero = fmt.Sprintf("0 as %s", typeNameToMonkey(field.GetTypeName()))
+	case descriptorpb.FieldDescriptorProto_TYPE_MESSAGE:
+		zero = fmt.Sprintf("new %s()", typeNameToMonkey(field.GetTypeName()))
+	default:
+		return "", fmt.Errorf("unsupported type: %s", field.GetType())
+	}
+	if field.GetLabel() == descriptorpb.FieldDescriptorProto_LABEL_REPEATED {
+		zero = "[]"
+	}
+	return zero, nil
 }
 
 func generateMessageEncode(w io.Writer, msg *descriptorpb.DescriptorProto) error {
@@ -280,7 +342,15 @@ func generateMessageEncode(w io.Writer, msg *descriptorpb.DescriptorProto) error
 				fmt.Fprintln(ind, "}")
 			}
 		} else {
-			fmt.Fprintf(ind, "result.addAll(%s);\n", fmt.Sprintf(encoder, field.GetNumber(), strcase.LowerCamelCase(field.GetName()), false))
+			fieldInd := ind
+			if canBeNull(field) {
+				fmt.Fprintf(ind, "if (%s != null) {\n", strcase.LowerCamelCase(field.GetName()))
+				fieldInd = indent.New(ind, tab)
+			}
+			fmt.Fprintf(fieldInd, "result.addAll(%s);\n", fmt.Sprintf(encoder, field.GetNumber(), strcase.LowerCamelCase(field.GetName()), canBeNull(field)))
+			if canBeNull(field) {
+				fmt.Fprintln(ind, "}")
+			}
 		}
 	}
 
@@ -372,7 +442,22 @@ func generateMessageDecode(w io.Writer, msg *descriptorpb.DescriptorProto) error
 		} else {
 			fmt.Fprintf(cs, "Protobuf.assertWireType(tag, Protobuf.%s);\n", wireType)
 			if field.GetType() == descriptorpb.FieldDescriptorProto_TYPE_MESSAGE {
-				fmt.Fprintf(cs, decoder+";\n", strcase.LowerCamelCase(field.GetName()))
+				writeInd := cs
+				if canBeNull(field) {
+					zero, err := fieldZero(field)
+					if err != nil {
+						return err
+					}
+					fmt.Fprintf(cs, "if (%s == null) {\n", strcase.LowerCamelCase(field.GetName()))
+					fmt.Fprintf(cs, tab+"%s = %s;\n", strcase.LowerCamelCase(field.GetName()), zero)
+					fmt.Fprintln(cs, "}")
+					fmt.Fprintf(cs, "if (%s != null) {\n", strcase.LowerCamelCase(field.GetName()))
+					writeInd = indent.New(cs, tab)
+				}
+				fmt.Fprintf(writeInd, decoder+";\n", strcase.LowerCamelCase(field.GetName()))
+				if canBeNull(field) {
+					fmt.Fprintln(cs, "}")
+				}
 			} else {
 				fmt.Fprintf(cs, "%s = %s;\n", strcase.LowerCamelCase(field.GetName()), decoder)
 			}
