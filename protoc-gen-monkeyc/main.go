@@ -139,13 +139,11 @@ func generateMessage(w io.Writer, msg *descriptorpb.DescriptorProto) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(w)
 
 	err = generateMessageEncode(ind, msg)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(w)
 
 	err = generateMessageDecode(ind, msg)
 	if err != nil {
@@ -212,6 +210,7 @@ func typeNameToMonkey(typeName string) string {
 }
 
 func generateGetter(w io.Writer, field *descriptorpb.FieldDescriptorProto) error {
+	fmt.Fprintln(w, "")
 	typ, err := getType(field, false)
 	if err != nil {
 		return err
@@ -232,11 +231,13 @@ func generateGetter(w io.Writer, field *descriptorpb.FieldDescriptorProto) error
 		fmt.Fprintf(ind, "return %s;\n", strcase.LowerCamelCase(field.GetName()))
 	}
 	fmt.Fprintln(w, "}")
-	fmt.Fprintln(w, "")
 	return nil
 }
 
 func generateMessageInitialize(w io.Writer, msg *descriptorpb.DescriptorProto) error {
+	if len(msg.Field) == 0 {
+		return nil
+	}
 	fmt.Fprintln(w, "public function initialize() {")
 	ind := indent.New(w, tab)
 
@@ -252,6 +253,7 @@ func generateMessageInitialize(w io.Writer, msg *descriptorpb.DescriptorProto) e
 	}
 
 	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w)
 
 	return nil
 }
@@ -293,6 +295,9 @@ func fieldZero(field *descriptorpb.FieldDescriptorProto) (string, error) {
 }
 
 func generateMessageEncode(w io.Writer, msg *descriptorpb.DescriptorProto) error {
+	if len(msg.Field) == 0 {
+		return nil
+	}
 	fmt.Fprintln(w, "public function Encode() as ByteArray {")
 	ind := indent.New(w, tab)
 
@@ -356,11 +361,15 @@ func generateMessageEncode(w io.Writer, msg *descriptorpb.DescriptorProto) error
 
 	fmt.Fprintln(ind, "return result;")
 	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w)
 
 	return nil
 }
 
 func generateMessageDecode(w io.Writer, msg *descriptorpb.DescriptorProto) error {
+	if len(msg.Field) == 0 {
+		return nil
+	}
 	fmt.Fprintln(w, "public function Decode(input as ByteArray) as Void {")
 	ind := indent.New(w, tab)
 	fmt.Fprintln(ind, "var d = new Protobuf.Decoder(input);")

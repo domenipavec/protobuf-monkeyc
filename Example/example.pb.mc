@@ -9,13 +9,13 @@ class ExampleMessage {
         public function initialize() {
             l1 = "";
         }
-    
+        
         public function Encode() as ByteArray {
             var result = []b;
             result.addAll(Protobuf.encodeFieldLen(1, l1, false));
             return result;
         }
-    
+        
         public function Decode(input as ByteArray) as Void {
             var d = new Protobuf.Decoder(input);
             while (d.remaining() > 0) {
@@ -29,10 +29,10 @@ class ExampleMessage {
                 }
             }
         }
+        
         public function GetL1() as String {
             return l1;
         }
-        
     }
 
     enum LocalEnum {
@@ -109,7 +109,7 @@ class ExampleMessage {
         ogm = null;
         olm = null;
     }
-
+    
     public function Encode() as ByteArray {
         var result = []b;
         result.addAll(Protobuf.encodeFieldVarint(1, i32, false));
@@ -193,7 +193,7 @@ class ExampleMessage {
         }
         return result;
     }
-
+    
     public function Decode(input as ByteArray) as Void {
         var d = new Protobuf.Decoder(input);
         while (d.remaining() > 0) {
@@ -454,6 +454,7 @@ class ExampleMessage {
             }
         }
     }
+    
     public function GetI32() as Number {
         return i32;
     }
@@ -615,7 +616,6 @@ class ExampleMessage {
         }
         return new LocalMessage();
     }
-    
 }
 
 class GlobalMessage {
@@ -624,13 +624,13 @@ class GlobalMessage {
     public function initialize() {
         g1 = 0;
     }
-
+    
     public function Encode() as ByteArray {
         var result = []b;
         result.addAll(Protobuf.encodeFieldVarint(1, g1, false));
         return result;
     }
-
+    
     public function Decode(input as ByteArray) as Void {
         var d = new Protobuf.Decoder(input);
         while (d.remaining() > 0) {
@@ -644,10 +644,10 @@ class GlobalMessage {
             }
         }
     }
+    
     public function GetG1() as Number {
         return g1;
     }
-    
 }
 
 enum GlobalEnum {

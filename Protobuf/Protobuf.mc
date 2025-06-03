@@ -12,8 +12,16 @@ module Protobuf {
     }
 
     function encodeFieldVarint(f as Number, v as Number or Long or Boolean, force as Boolean) as ByteArray {
-        if (((v instanceof Boolean && !v) || v == 0) && !force) {
-            return []b;
+        if (!force) {
+            if (v instanceof Boolean) {
+                if (!v) {
+                    return []b;
+                }
+            } else {
+                if (v == 0) {
+                    return []b;
+                }
+            }
         }
         var result = []b;
         result.addAll(encodeTag(f, VARINT));
