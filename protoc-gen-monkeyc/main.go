@@ -95,7 +95,7 @@ func generateFile(fn string, proto *descriptorpb.FileDescriptorProto) (*pluginpb
 
 	for _, e := range proto.EnumType {
 		fmt.Fprintln(buf)
-		err := generateEnum(buf, e)
+		err := generateEnum(buf, e, true)
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +119,7 @@ func generateMessage(w io.Writer, msg *descriptorpb.DescriptorProto) error {
 		fmt.Fprintln(w)
 	}
 	for _, e := range msg.EnumType {
-		err := generateEnum(ind, e)
+		err := generateEnum(ind, e, false)
 		if err != nil {
 			return err
 		}
@@ -515,12 +515,23 @@ func isPacked(field *descriptorpb.FieldDescriptorProto) bool {
 	}
 }
 
-func generateEnum(w io.Writer, e *descriptorpb.EnumDescriptorProto) error {
+func generateEnum(w io.Writer, e *descriptorpb.EnumDescriptorProto, isGlobal bool) error {
 	fmt.Fprintf(w, "enum %s {\n", e.GetName())
 	ind := indent.New(w, tab)
 	for _, v := range e.Value {
 		fmt.Fprintf(ind, "%s = %v,\n", v.GetName(), v.GetNumber())
 	}
 	fmt.Fprintln(w, "}")
+
+	fmt.Fprintln(w)
+	prefix := ""
+	if !isGlobal {
+		prefix = "static public "
+	}
+	fmt.Fprintf(w, "%svar %sValue as Dictionary<%s, String> = {\n", prefix, e.GetName(), e.GetName())
+	for _, v := range e.Value {
+		fmt.Fprintf(ind, "%s => %q,\n", v.GetName(), v.GetName())
+	}
+	fmt.Fprintf(w, "} as Dictionary<%s, String>;\n", e.GetName())
 	return nil
 }

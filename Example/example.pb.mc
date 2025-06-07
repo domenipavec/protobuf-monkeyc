@@ -39,6 +39,11 @@ class ExampleMessage {
         LA = 0,
         LB = 1,
     }
+    
+    static public var LocalEnumValue as Dictionary<LocalEnum, String> = {
+        LA => "LA",
+        LB => "LB",
+    } as Dictionary<LocalEnum, String>;
 
     public var i32 as Number;
     public var i64 as Long;
@@ -654,3 +659,8 @@ enum GlobalEnum {
     A = 0,
     B = 1,
 }
+
+var GlobalEnumValue as Dictionary<GlobalEnum, String> = {
+    A => "A",
+    B => "B",
+} as Dictionary<GlobalEnum, String>;

@@ -780,3 +780,30 @@ func TestDecoderVarint64(t *testing.T) {
 
 	runner.Execute(t)
 }
+
+func TestEnumValue(t *testing.T) {
+	runner := xtesting.MonkeyRunner{}
+
+	runner.Run(xtesting.MonkeyRunnerCase{
+		Function: "Lang.format",
+		Args: generateFormatArgs(
+			"GlobalEnumValue[A]",
+			"GlobalEnumValue[B]",
+			"ExampleMessage.LocalEnumValue[ExampleMessage.LA]",
+			"ExampleMessage.LocalEnumValue[ExampleMessage.LB]",
+		),
+		Callback: func(output string) {
+			t.Log(output)
+
+			parts := strings.Split(output, outputSeparator)
+			require.Len(t, parts, 4)
+
+			assert.Equal(t, "A", parts[0])
+			assert.Equal(t, "B", parts[1])
+			assert.Equal(t, "LA", parts[2])
+			assert.Equal(t, "LB", parts[3])
+		},
+	})
+
+	runner.Execute(t)
+}
